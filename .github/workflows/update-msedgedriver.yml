@@ -17,7 +17,12 @@ jobs:
         id: edge
         shell: pwsh
         run: |
-          $version = (Get-Item "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe").VersionInfo.ProductVersion
+          $paths = @(
+            "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+            "C:\Program Files\Microsoft\Edge\Application\msedge.exe"
+          )
+          $edgePath = $paths | Where-Object { Test-Path $_ } | Select-Object -First 1
+          $version = (Get-Item $edgePath).VersionInfo.ProductVersion
           echo "version=$version" >> $env:GITHUB_OUTPUT
           echo "Edge version: $version"
 
@@ -25,11 +30,13 @@ jobs:
         shell: pwsh
         run: |
           $version = "${{ steps.edge.outputs.version }}"
-          $url = "https://msedgedriver.azureedge.net/$version/edgedriver_win64.zip"
+          $url = "https://msedgedriver.microsoft.com/$version/edgedriver_win64.zip"
+          echo "Downloading from: $url"
           Invoke-WebRequest -Uri $url -OutFile "edgedriver.zip"
           Expand-Archive -Path "edgedriver.zip" -DestinationPath "driver_temp" -Force
           Copy-Item "driver_temp\msedgedriver.exe" "msedgedriver.exe" -Force
           Remove-Item "edgedriver.zip", "driver_temp" -Recurse -Force
+          echo "Done."
 
       - name: Commit if changed
         shell: pwsh
