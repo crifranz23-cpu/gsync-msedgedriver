@@ -1,0 +1,46 @@
+name: Update msedgedriver
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  update-driver:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Get Edge version
+        id: edge
+        shell: pwsh
+        run: |
+          $version = (Get-Item "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe").VersionInfo.ProductVersion
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+          echo "Edge version: $version"
+
+      - name: Download matching msedgedriver
+        shell: pwsh
+        run: |
+          $version = "${{ steps.edge.outputs.version }}"
+          $url = "https://msedgedriver.azureedge.net/$version/edgedriver_win64.zip"
+          Invoke-WebRequest -Uri $url -OutFile "edgedriver.zip"
+          Expand-Archive -Path "edgedriver.zip" -DestinationPath "driver_temp" -Force
+          Copy-Item "driver_temp\msedgedriver.exe" "msedgedriver.exe" -Force
+          Remove-Item "edgedriver.zip", "driver_temp" -Recurse -Force
+
+      - name: Commit if changed
+        shell: pwsh
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add msedgedriver.exe
+          $status = git status --porcelain
+          if ($status) {
+            git commit -m "chore: update msedgedriver to ${{ steps.edge.outputs.version }}"
+            git push
+          } else {
+            echo "msedgedriver already up to date — no commit needed"
+          }
