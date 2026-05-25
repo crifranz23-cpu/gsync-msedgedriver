@@ -7,47 +7,44 @@ on:
 
 jobs:
   update-driver:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Get Edge version
+      - name: Get latest Edge stable version
         id: edge
-        shell: pwsh
         run: |
-          $paths = @(
-            "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-            "C:\Program Files\Microsoft\Edge\Application\msedge.exe"
-          )
-          $edgePath = $paths | Where-Object { Test-Path $_ } | Select-Object -First 1
-          $version = (Get-Item $edgePath).VersionInfo.ProductVersion
-          echo "version=$version" >> $env:GITHUB_OUTPUT
-          echo "Edge version: $version"
+          VERSION=$(curl -s "https://edgeupdates.microsoft.com/api/products" \
+            | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          stable = next(p for p in data if p['Product'] == 'Stable')
+          release = next(r for r in stable['Releases'] if r['Platform'] == 'Windows' and r['Architecture'] == 'x64')
+          print(release['ProductVersion'])
+          ")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Latest Edge version: $VERSION"
 
       - name: Download matching msedgedriver
-        shell: pwsh
         run: |
-          $version = "${{ steps.edge.outputs.version }}"
-          $url = "https://msedgedriver.microsoft.com/$version/edgedriver_win64.zip"
-          echo "Downloading from: $url"
-          Invoke-WebRequest -Uri $url -OutFile "edgedriver.zip"
-          Expand-Archive -Path "edgedriver.zip" -DestinationPath "driver_temp" -Force
-          Copy-Item "driver_temp\msedgedriver.exe" "msedgedriver.exe" -Force
-          Remove-Item "edgedriver.zip", "driver_temp" -Recurse -Force
+          VERSION="${{ steps.edge.outputs.version }}"
+          URL="https://msedgedriver.microsoft.com/$VERSION/edgedriver_win64.zip"
+          echo "Downloading: $URL"
+          curl -L -o edgedriver.zip "$URL"
+          unzip -o edgedriver.zip msedgedriver.exe
+          rm edgedriver.zip
           echo "Done."
 
       - name: Commit if changed
-        shell: pwsh
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add msedgedriver.exe
-          $status = git status --porcelain
-          if ($status) {
+          if git diff --staged --quiet; then
+            echo "Already up to date — no commit needed"
+          else
             git commit -m "chore: update msedgedriver to ${{ steps.edge.outputs.version }}"
             git push
-          } else {
-            echo "msedgedriver already up to date — no commit needed"
-          }
+          fi
