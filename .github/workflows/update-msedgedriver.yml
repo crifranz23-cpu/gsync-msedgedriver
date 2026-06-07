@@ -38,13 +38,36 @@ jobs:
           echo "Done."
 
       - name: Commit if changed
+        id: commit
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add msedgedriver.exe
           if git diff --staged --quiet; then
+            echo "updated=false" >> $GITHUB_OUTPUT
             echo "Already up to date — no commit needed"
           else
             git commit -m "chore: update msedgedriver to ${{ steps.edge.outputs.version }}"
             git push
+            echo "updated=true" >> $GITHUB_OUTPUT
           fi
+
+      - name: Send email notification
+        if: steps.commit.outputs.updated == 'true'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          to: ${{ secrets.MAIL_TO }}
+          from: GSync DataAgent
+          subject: "msedgedriver updated to ${{ steps.edge.outputs.version }}"
+          body: |
+            A new msedgedriver has been committed to your repo.
+
+            Version: ${{ steps.edge.outputs.version }}
+            Repo: https://github.com/crifranz23-cpu/gsync-msedgedriver
+
+            Please update msedgedriver.exe on the host PC:
+            https://github.com/crifranz23-cpu/gsync-msedgedriver/raw/main/msedgedriver.exe
