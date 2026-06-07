@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '0 0 * * *'
   workflow_dispatch:
+    inputs:
+      force_email:
+        description: 'Force send test email even if no update'
+        required: false
+        default: 'false'
 
 jobs:
   update-driver:
@@ -53,7 +58,7 @@ jobs:
           fi
 
       - name: Send email notification
-        if: steps.commit.outputs.updated == 'true'
+        if: steps.commit.outputs.updated == 'true' || github.event.inputs.force_email == 'true'
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
