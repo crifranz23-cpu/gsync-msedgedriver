@@ -69,10 +69,8 @@ jobs:
           from: GSync DataAgent
           subject: "msedgedriver updated to ${{ steps.edge.outputs.version }}"
           body: |
-            A new msedgedriver has been committed to your repo.
+            A new msedgedriver version is available.
 
             Version: ${{ steps.edge.outputs.version }}
-            Repo: https://github.com/crifranz23-cpu/gsync-msedgedriver
 
-            Please update msedgedriver.exe on the host PC:
-            https://github.com/crifranz23-cpu/gsync-msedgedriver/raw/main/msedgedriver.exe
+            Please update msedgedriver.exe on the host PC.
